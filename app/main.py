@@ -1,5 +1,7 @@
-from fastapi import FastAPI
-from typing import Optional
+from fastapi import FastAPI, UploadFile, File
+import pandas as pd
+import io
+from app.predict import predict_house_prices
 
 app = FastAPI(
     title="My FastAPI App",
@@ -7,22 +9,19 @@ app = FastAPI(
     version="1.0.0"
 )
 
-@app.get("/")
-async def root():
-    return {"message": "Chào mừng đến với FastAPI!"}
-
-@app.get("/hello/{name}")
-async def say_hello(name: str):
-    return {"message": f"Xin chào {name}!"}
-
-@app.get("/items/{item_id}")
-async def read_item(item_id: int, q: Optional[str] = None):
-    return {"item_id": item_id, "q": q}
-
-@app.post("/items/")
-async def create_item(item: dict):
-    return {"item": item, "status": "created"}
-
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy"}
+@app.post("/predict")
+async def predict(file: UploadFile = File(...)):
+    """
+    Nhận một tệp CSV và trả về dự đoán giá nhà.
+    """
+    try:
+        contents = await file.read()
+        df = pd.read_csv(io.StringIO(contents.decode("utf-8")))
+        
+        predictions = predict_house_prices(df)
+        if predictions is not None:
+            return {"predictions": predictions.tolist()}
+        else:
+            return {"error": "Không thể thực hiện dự đoán."}
+    except Exception as e:
+        return {"error": str(e)}
